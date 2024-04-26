@@ -152,7 +152,6 @@ DeviceApiState deviceApi_Handler(char* appData, uint8_t transport)
 		}
 		// Null terminate the string
 		command[4] = '\0';	
-		Serial.println(command);
 		// CTRL (control) - Control the device
 		if(strcmp(command, USB_CONTROL_COMMAND_TYPE_STRING) == 0)
 		{
@@ -202,7 +201,20 @@ DeviceApiState deviceApi_Handler(char* appData, uint8_t transport)
 		while(1)
 		{
 			// Fetch the four character command using a '~' for delimiting
-			size_t len = Serial.readBytesUntil('~', appData, USB_DATA_LEN);
+			size_t len = 0;
+			if(transport == USB_CDC_TRANSPORT)
+				len = Serial.readBytesUntil('~', appData, USB_DATA_LEN);
+			else if(transport == MIDI_TRANSPORT)
+			{
+				for(uint8_t i=0; i<USB_DATA_LEN; i++)
+				{
+					if(appData[i] == '~')
+					{
+						len = i;
+						break;
+					}
+				}
+			}
 			// Check for a timeout
 			if(len == 0)
 			{

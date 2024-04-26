@@ -5,6 +5,8 @@
 #include "tusb.h"
 #include "device_api.h"
 
+#define SYSEX_DEVICE_API_COMMAND 	0x01
+
 #define STRING_NOT_FOUND -1
 #define ARRAY_LEN(arr) ((int) (sizeof (arr) / sizeof (arr)[0]))
 

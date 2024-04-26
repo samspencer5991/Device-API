@@ -36,6 +36,7 @@
 #define USB_BANK_DOWN_STRING								"bankDown"
 #define USB_GO_TO_BANK_STRING								"goToBank"
 #define USB_CURRENT_BANK_STRING							"currentBank"
+#define USB_CURRENT_PRESET_STRING						"currentPreset"
 #define USB_BANK_STRING										"bank"
 #define USB_FOOTSWITCH_STRING								"footswitch"
 #define USB_FOOTSWITCHES_STRING							"footswitches"
@@ -247,6 +248,7 @@
 #define USB_MIDI5_STRING									"midi5"
 
 #define USB_MIDI0_THRU_HANDLES_STRING					"midi0ThruHandles"
+#define USB_MIDI1_THRU_HANDLES_STRING					"midi1ThruHandles"
 #define USB_FLEXI1_THRU_HANDLES_STRING					"flexi1ThruHandles"
 #define USB_FLEXI2_THRU_HANDLES_STRING					"flexi2ThruHandles"
 #define USB_MIDI0_THRU_HANDLES_STRING					"midi0ThruHandles"
@@ -369,6 +371,10 @@
 
 #define USB_PRIMARY_STRING									"primary"
 #define USB_SECONDARY_STRING								"secondary"
+
+#define USB_TIP_STATE_STRING								"tipState"
+#define USB_RING_STATE_STRING								"ringState"
+#define USB_EXP_VALUE_STRING								"expValue"
 
 #define USB_CDC_TRANSPORT			0
 #define MIDI_TRANSPORT				1
