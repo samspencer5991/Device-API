@@ -1,3 +1,5 @@
+#ifdef FRAMEWORK_ARDUINO
+
 #include "device_api.h"
 #include "tusb.h"
 #include <string.h>
@@ -349,3 +351,4 @@ DeviceApiState deviceApi_Handler(char* appData, uint8_t transport)
 	return DeviceApiError;
 }
 
+#endif
