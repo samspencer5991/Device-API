@@ -1,6 +1,9 @@
 #include "device_api_utility.h"
 #include <Arduino.h>
 #include "midi_handling.h"
+#include "esp_log.h"
+
+//const char* TAG = "Device-API";
 
 size_t transmitBuffer(const uint8_t *buffer, size_t size);
 size_t transmitBufferMidi(const uint8_t *buffer, size_t size);
@@ -18,7 +21,7 @@ size_t CustomWriter::write(const uint8_t *buffer, size_t length)
 
 size_t CustomWriter::writeBuffer(const uint8_t *buffer, size_t length)
 {
-	uint8_t modBuffer[64];
+	uint8_t modBuffer[MIDI_TRANSPORT_BUFFER_SIZE];
 	memcpy(modBuffer, buffer, length);
 	// Check for a repeat serialisation
 	if(repeatSerialisation && !braceRemoved && !firstTransfer)
@@ -36,51 +39,85 @@ size_t CustomWriter::writeBuffer(const uint8_t *buffer, size_t length)
 		{
 			uint8_t addressBuffer[] = {0x00, 0x22, 0x33};
 			sendSysexOpening(addressBuffer, 3);
+			//modBuffer[0] = 0x00;
+			//modBuffer[1] = 0x22;
+			//modBuffer[2] = 0x33;
+			//numBytes = 3;
 		}
 		firstTransfer = 0;
 	}
 	// If the new data will overflow the buffer, send a full buffer and store the rest
 	uint16_t totalBytes = length;
 	uint16_t writeCount = 0;
-	if(numBytes + length > 64)
+	if(transport == USB_CDC_TRANSPORT)
 	{
-		// Copy as many bytes as will fit into the buffer and transmit
-		uint16_t remainingBytes = 64 - numBytes;
-		memcpy(&txBuf[numBytes], modBuffer, remainingBytes);
-		if(transport == USB_CDC_TRANSPORT)
-			transmitBuffer(txBuf, 64);
-		else if(transport == MIDI_TRANSPORT)
-			transmitBufferMidi(txBuf, 64);
-		writeCount = 64;
-		totalBytes -= remainingBytes;
-		// Perform as many full buffer writes as required to reduce the remaining bytes to less than 64
-		while(totalBytes > 64)
+		if(numBytes + length > 64)
 		{
-			memcpy(txBuf, &modBuffer[writeCount], 64);
-			if(transport == USB_CDC_TRANSPORT)
+			// Copy as many bytes as will fit into the buffer and transmit
+			uint16_t remainingBytes = 64 - numBytes;
+			memcpy(&txBuf[numBytes], modBuffer, remainingBytes);
+			transmitBuffer(txBuf, 64);
+			writeCount = 64;
+			totalBytes -= remainingBytes;
+			// Perform as many full buffer writes as required to reduce the remaining bytes to less than 64
+			while(totalBytes > 64)
+			{
+				memcpy(txBuf, &modBuffer[writeCount], 64);
 				transmitBuffer(txBuf, 64);
-			else if(transport == MIDI_TRANSPORT)
-				transmitBufferMidi(txBuf, 64);
-			writeCount += 64;
-			totalBytes -= 64;
+
+				writeCount += 64;
+				totalBytes -= 64;
+			}
+			// Store the remaining available bytes
+			memcpy(txBuf, &modBuffer[remainingBytes], totalBytes);
+			numBytes = totalBytes;
+			return length;
 		}
-		// Store the remaining available bytes
-		memcpy(txBuf, &modBuffer[remainingBytes], totalBytes);
-		numBytes = totalBytes;
-		return length;
+		// If the new data does not fill the buffer, store it and return
+		else
+		{
+			memcpy(&txBuf[numBytes], modBuffer, length);
+			numBytes += length;
+			return length;
+		}
 	}
-	// If the new data does not fill the buffer, store it and return
-	else
+	else if(transport == MIDI_TRANSPORT)
 	{
-		memcpy(&txBuf[numBytes], modBuffer, length);
-		numBytes += length;
-		return length;
+		if(numBytes + length > MIDI_TRANSPORT_BUFFER_SIZE)
+		{
+			// Copy as many bytes as will fit into the buffer and transmit
+			uint16_t remainingBytes = MIDI_TRANSPORT_BUFFER_SIZE - numBytes;
+			memcpy(&txBuf[numBytes], modBuffer, remainingBytes);
+			transmitBufferMidi(txBuf, MIDI_TRANSPORT_BUFFER_SIZE);
+			writeCount = MIDI_TRANSPORT_BUFFER_SIZE;
+			totalBytes -= remainingBytes;
+			// Perform as many full buffer writes as required to reduce the remaining bytes to less than 64
+			while(totalBytes > MIDI_TRANSPORT_BUFFER_SIZE)
+			{
+				memcpy(txBuf, &modBuffer[writeCount], MIDI_TRANSPORT_BUFFER_SIZE);
+				transmitBufferMidi(txBuf, MIDI_TRANSPORT_BUFFER_SIZE);
+				writeCount += MIDI_TRANSPORT_BUFFER_SIZE;
+				totalBytes -= MIDI_TRANSPORT_BUFFER_SIZE;
+			}
+			// Store the remaining available bytes
+			memcpy(txBuf, &modBuffer[remainingBytes], totalBytes);
+			numBytes = totalBytes;
+			return length;
+		}
+		// If the new data does not fill the buffer, store it and return
+		else
+		{
+			memcpy(&txBuf[numBytes], modBuffer, length);
+			numBytes += length;
+			return length;
+		}
 	}
+	return 0;
 }
 
 size_t CustomWriter::flush()
 {
-	Serial.println(numBytes);
+	//Serial.println(numBytes);
 	// Check for a repeat serialisation
 	if(repeatSerialisation)
 	{
@@ -97,7 +134,9 @@ size_t CustomWriter::flush()
 	if(transport == USB_CDC_TRANSPORT)
 		num = transmitBuffer(txBuf, numBytes);
 	else if(transport == MIDI_TRANSPORT)
+	{
 		num = transmitBufferMidi(txBuf, numBytes);
+	}
 	
 	numBytes = 0;
 	return num;
@@ -122,10 +161,9 @@ size_t transmitBuffer(const uint8_t *buffer, size_t size)
 size_t transmitBufferMidi(const uint8_t *buffer, size_t size)
 {
 	size_t remain = size;
-	while (remain && tud_midi_n_mounted(0))
+	while (remain)
 	{
-		midi_SendDeviceApiSysExString((const char*)buffer, remain, 1);
-		//size_t wrcount = tud_cdc_n_write(0, buffer, remain);
+		midi_SendDeviceApiSysExString((const char*)buffer, remain, 0);
 		remain = 0;
 	}
 	return size - remain;
@@ -134,14 +172,12 @@ size_t transmitBufferMidi(const uint8_t *buffer, size_t size)
 void sendSysexOpening(uint8_t* address, uint8_t addressSize)
 {
 	// Sends the address and device api command byte
-	uint8_t openingBuffer[2+addressSize];
+	uint8_t openingBuffer[3+addressSize];
 	openingBuffer[0] = 0xF0;
-	for(uint8_t i = 0; i < addressSize; i++)
-	{
-		openingBuffer[i+1] = address[i];
-	}
+	memcpy(&openingBuffer[1], address, addressSize);
 	openingBuffer[addressSize+1] = SYSEX_DEVICE_API_COMMAND;
-	midi_SendDeviceApiSysExString((const char*)openingBuffer, addressSize+2, 1);
+	openingBuffer[addressSize+2] = 0xF7;
+	midi_SendDeviceApiSysExString((const char*)openingBuffer, addressSize+3, 1);
 }
 
 void sendPacketTermination(uint8_t transport)
@@ -155,8 +191,8 @@ void sendPacketTermination(uint8_t transport)
 	else if(transport == MIDI_TRANSPORT)
 	{
 		// Sends terminating character, new-line for readability, and end of SysEx byte
-		uint8_t termBuffer[] = {'~', 0xF7};
-		midi_SendDeviceApiSysExString((const char*)termBuffer, 2, 1);
+		uint8_t termBuffer[] = {0xf0, '~', 0xF7};
+		midi_SendDeviceApiSysExString((const char*)termBuffer, 3, 1);
 	}
 }
 

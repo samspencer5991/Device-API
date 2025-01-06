@@ -124,6 +124,7 @@ void resetDeviceApi()
 //------------- Global Functions -------------//
 DeviceApiState deviceApi_Handler(char* appData, uint8_t transport)
 {
+	Serial0.println("RECEIVED COMMAND");
 	static uint16_t bankIndex = 0;
 	// Device is ready to receive a new command
 	if(apiState == DeviceApiReady)
@@ -152,6 +153,7 @@ DeviceApiState deviceApi_Handler(char* appData, uint8_t transport)
 			resetDeviceApi();
 			return DeviceApiError;
 		}
+		
 		// Null terminate the string
 		command[4] = '\0';	
 		// CTRL (control) - Control the device

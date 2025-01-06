@@ -10,12 +10,15 @@
 #define STRING_NOT_FOUND -1
 #define ARRAY_LEN(arr) ((int) (sizeof (arr) / sizeof (arr)[0]))
 
+#define MIDI_TRANSPORT_BUFFER_SIZE 64
+
 struct CustomWriter {
 	uint8_t repeatSerialisation = 0;
 	uint8_t firstTransfer = 1;
 	uint8_t braceRemoved = 0;
-	uint8_t txBuf[128];
-	uint8_t numBytes = 0;
+	uint8_t txBuf[MIDI_TRANSPORT_BUFFER_SIZE*2];
+	//uint8_t txBufMidi[MIDI_TRANSPORT_BUFFER_SIZE*2];
+	uint16_t numBytes = 0;			// Number of bytes currently in the txBuf waiting to be transmitted
 	uint8_t transport = USB_CDC_TRANSPORT;
 	size_t writeBuffer(const uint8_t *buffer, size_t length);
 	size_t write(uint8_t c);
