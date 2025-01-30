@@ -28,6 +28,7 @@
 #define USB_REFRESH_LEDS_STRING							"refreshLeds"
 #define USB_REFRESH_DISPLAY_STRING						"refreshDisplay"
 #define USB_MIDI_CHANNEL_STRING							"midiChannel"
+#define USB_TONEX_MIDI_CHANNEL_STRING					"tonexMidiChannel"
 #define USB_ENTER_BOOTLOADER_STRING						"enterBootloader"
 #define USB_RESTART_STRING									"deviceRestart"
 #define USB_FACTORY_RESET_STRING							"factoryReset"
@@ -221,6 +222,8 @@
 #define USB_NUM_MESSAGES_STRING							"numMessages"
 #define USB_MIN_LIMIT_STRING								"minLimit"
 #define USB_MAX_LIMIT_STRING								"maxLimit"
+#define USB_EXP_OUT_MIN_STRING							"expMinLimit"
+#define USB_EXP_OUT_MAX_STRING							"expMaxLimit"
 #define USB_SWEEP_STRING									"sweep"
 #define USB_STATUS_BYTE_STRING							"statusByte"
 #define USB_DATA_BYTE1_STRING								"dataByte1"
@@ -239,6 +242,9 @@
 #define USB_FLEXI2_STRING									"flexi2"
 #define USB_DIN5_STRING										"din5"
 #define USB_USB_STRING										"usb"
+#define USB_USBD_STRING										"usbd"
+#define USB_USBH_STRING										"usbh"
+#define USB_WIFI_STRING										"wifi"
 #define USB_MIDI0_STRING									"midi0"
 #define USB_BLE_STRING										"ble"
 #define USB_MIDI1_STRING									"midi1"
@@ -251,8 +257,11 @@
 #define USB_MIDI1_THRU_HANDLES_STRING					"midi1ThruHandles"
 #define USB_FLEXI1_THRU_HANDLES_STRING					"flexi1ThruHandles"
 #define USB_FLEXI2_THRU_HANDLES_STRING					"flexi2ThruHandles"
-#define USB_MIDI0_THRU_HANDLES_STRING					"midi0ThruHandles"
 #define USB_USB_THRU_HANDLES_STRING						"usbThruHandles"
+#define USB_USBD_THRU_HANDLES_STRING					"usbdThruHandles"
+#define USB_USBH_THRU_HANDLES_STRING					"usbhThruHandles"
+#define USB_WIFI_THRU_HANDLES_STRING					"wifiThruHandles"
+#define USB_BLE_THRU_HANDLES_STRING						"bleThruHandles"
 
 #define USB_14_DIVISION_STRING							"1/4"
 #define USB_14T_DIVISION_STRING							"1/4T"
@@ -375,6 +384,13 @@
 #define USB_TIP_STATE_STRING								"tipState"
 #define USB_RING_STATE_STRING								"ringState"
 #define USB_EXP_VALUE_STRING								"expValue"
+
+#define USB_LED1_FUNCTION_STRING							"led1Function"
+#define USB_LED2_FUNCTION_STRING							"led2Function"
+#define USB_LED_RELAY_STRING								"relay"
+#define USB_LED_EXP_STRING									"exp"
+#define USB_LED_MIDI_STRING								"midi"
+#define USB_LED_WIRELESS_STRING							"wireless"
 
 #define USB_CDC_TRANSPORT			0
 #define MIDI_TRANSPORT				1
