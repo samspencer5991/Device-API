@@ -1,12 +1,16 @@
 #ifdef FRAMEWORK_ARDUINO
 
 #include "device_api.h"
-#include "tusb.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <Arduino.h>
 #include "midi_handling.h"
+
+#ifdef USE_TINYUSB
+//#include "tusb.h"
+#endif
 
 
 #define USB_DATA_LEN					8192
@@ -124,7 +128,6 @@ void resetDeviceApi()
 //------------- Global Functions -------------//
 DeviceApiState deviceApi_Handler(char* appData, uint8_t transport)
 {
-	Serial0.println("RECEIVED COMMAND");
 	static uint16_t bankIndex = 0;
 	// Device is ready to receive a new command
 	if(apiState == DeviceApiReady)
@@ -204,13 +207,13 @@ DeviceApiState deviceApi_Handler(char* appData, uint8_t transport)
 		uint32_t byteCount = 0;
 		while(1)
 		{
-			// Fetch the four character command using a '~' for delimiting
+			// Read the packet using a '~' for delimiting
 			size_t len = 0;
 			if(transport == USB_CDC_TRANSPORT)
 				len = Serial.readBytesUntil('~', appData, USB_DATA_LEN);
 			else if(transport == MIDI_TRANSPORT)
 			{
-				for(uint8_t i=0; i<USB_DATA_LEN; i++)
+				for(uint16_t i=0; i<USB_DATA_LEN; i++)
 				{
 					if(appData[i] == '~')
 					{

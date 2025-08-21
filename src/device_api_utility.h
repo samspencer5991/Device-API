@@ -2,7 +2,10 @@
 #define DEVICE_API_UTILITY_H_
 
 #include "stdint.h"
+#ifdef USE_TINYUSB
 #include "tusb.h"
+#endif
+#include "stdlib.h"
 #include "device_api.h"
 
 #define SYSEX_DEVICE_API_COMMAND 	0x01

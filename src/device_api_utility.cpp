@@ -145,6 +145,7 @@ size_t CustomWriter::flush()
 size_t transmitBuffer(const uint8_t *buffer, size_t size)
 {
 	size_t remain = size;
+#ifdef USE_TINYUSB
 	while (remain && tud_cdc_n_connected(0))
 	{
 		size_t wrcount = tud_cdc_n_write(0, buffer, remain);
@@ -155,7 +156,16 @@ size_t transmitBuffer(const uint8_t *buffer, size_t size)
 		if (remain)
 			tud_task();
 	}
+#else
+	while (remain)
+	{
+		size_t wrcount = Serial.write(buffer, remain);
+		remain -= wrcount;
+		buffer += wrcount;
+	}
+#endif
 	return size - remain;
+
 }
 
 size_t transmitBufferMidi(const uint8_t *buffer, size_t size)
