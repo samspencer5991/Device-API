@@ -262,6 +262,7 @@
 #define USB_USBH_THRU_HANDLES_STRING					"usbhThruHandles"
 #define USB_WIFI_THRU_HANDLES_STRING					"wifiThruHandles"
 #define USB_BLE_THRU_HANDLES_STRING						"bleThruHandles"
+#define USB_MIDI_CLOCK_OUT_HANDLES_STRING				"midiClockOutHandles"
 
 #define USB_14_DIVISION_STRING							"1/4"
 #define USB_14T_DIVISION_STRING							"1/4T"
