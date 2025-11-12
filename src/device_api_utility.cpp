@@ -1,7 +1,10 @@
 #include "device_api_utility.h"
 #include <Arduino.h>
 #include "midi_handling.h"
+
+#ifdef ESP32
 #include "esp_log.h"
+#endif
 
 //const char* TAG = "Device-API";
 
