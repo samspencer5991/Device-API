@@ -1,9 +1,16 @@
 #include "device_api_utility.h"
 #include <Arduino.h>
 #include "midi_handling.h"
-
-#ifdef ESP32
 #include "esp_log.h"
+// CHANGE: USBSerial abstraction — works with CDC_ON_BOOT=0 and CDC_ON_BOOT=1.
+// CDC_ON_BOOT=0: Serial = UART0; USBSerial is the explicit USBCDC instance from main.cpp.
+// CDC_ON_BOOT=1: Serial is already USBCDC; alias it.
+// TO REVERT: remove this block; replace USBSerial below with Serial.
+#if !ARDUINO_USB_CDC_ON_BOOT
+#include <USBCDC.h>
+extern USBCDC USBSerial;
+#else
+#define USBSerial Serial
 #endif
 
 //const char* TAG = "Device-API";
@@ -162,7 +169,7 @@ size_t transmitBuffer(const uint8_t *buffer, size_t size)
 #else
 	while (remain)
 	{
-		size_t wrcount = Serial.write(buffer, remain);
+		size_t wrcount = USBSerial.write(buffer, remain);
 		remain -= wrcount;
 		buffer += wrcount;
 	}
@@ -199,7 +206,7 @@ void sendPacketTermination(uint8_t transport)
 	{
 		// Sends terminating character and new-line for readability
 		const uint8_t txStr[] = {"~\n"};
-		Serial.write(txStr, 2);
+		USBSerial.write(txStr, 2);
 	}
 	else if(transport == MIDI_TRANSPORT)
 	{

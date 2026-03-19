@@ -7,6 +7,16 @@
 #include <stdlib.h>
 #include <Arduino.h>
 #include "midi_handling.h"
+// CHANGE: USBSerial abstraction — works with CDC_ON_BOOT=0 and CDC_ON_BOOT=1.
+// CDC_ON_BOOT=0: Serial = UART0; USBSerial is the explicit USBCDC instance from main.cpp.
+// CDC_ON_BOOT=1: Serial is already USBCDC; alias it.
+// TO REVERT: remove this block; replace USBSerial below with Serial.
+#if !ARDUINO_USB_CDC_ON_BOOT
+#include <USBCDC.h>
+extern USBCDC USBSerial;
+#else
+#define USBSerial Serial
+#endif
 
 #ifdef USE_TINYUSB
 //#include "tusb.h"
@@ -62,7 +72,7 @@ void sendInvalidCommandPacket(uint8_t transport)
 	}
 	else if(transport == USB_CDC_TRANSPORT)
 	{
-		Serial.write(buffer, strlen(buffer));
+		USBSerial.write(buffer, strlen(buffer));
 	}
 }
 
@@ -75,7 +85,7 @@ void sendOkPacket(uint8_t transport)
 	}
 	else if(transport == USB_CDC_TRANSPORT)
 	{
-		Serial.write(buffer, strlen(buffer));
+		USBSerial.write(buffer, strlen(buffer));
 	}
 }
 
@@ -88,7 +98,7 @@ void sendTxOverflowMessage(uint8_t transport)
 	}
 	else if(transport == USB_CDC_TRANSPORT)
 	{
-		Serial.write(buffer, strlen(buffer));
+		USBSerial.write(buffer, strlen(buffer));
 	}
 }
 
@@ -101,7 +111,7 @@ void sendInvalidTerminationPacket(uint8_t transport)
 	}
 	else if(transport == USB_CDC_TRANSPORT)
 	{
-		Serial.write(buffer, strlen(buffer));
+		USBSerial.write(buffer, strlen(buffer));
 	}
 }
 
@@ -113,7 +123,7 @@ void sendEventPacket(char* message, uint8_t transport)
 	}
 	else if(transport == USB_CDC_TRANSPORT)
 	{
-		Serial.write(message, strlen(message));
+		USBSerial.write(message, strlen(message));
 	}
 }
 
@@ -136,7 +146,7 @@ DeviceApiState deviceApi_Handler(char* appData, uint8_t transport)
 		char command[6];
 		size_t len = 0;
 		if(transport == USB_CDC_TRANSPORT)
-			len = Serial.readBytesUntil('~', command, 5);
+			len = USBSerial.readBytesUntil('~', command, 5);
 		else if(transport == MIDI_TRANSPORT)
 		{
 			for(uint8_t i=0; i<5; i++)
@@ -210,7 +220,7 @@ DeviceApiState deviceApi_Handler(char* appData, uint8_t transport)
 			// Read the packet using a '~' for delimiting
 			size_t len = 0;
 			if(transport == USB_CDC_TRANSPORT)
-				len = Serial.readBytesUntil('~', appData, USB_DATA_LEN);
+				len = USBSerial.readBytesUntil('~', appData, USB_DATA_LEN);
 			else if(transport == MIDI_TRANSPORT)
 			{
 				for(uint16_t i=0; i<USB_DATA_LEN; i++)
