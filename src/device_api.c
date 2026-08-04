@@ -325,4 +325,247 @@ DeviceApiState deviceApi_Handler(char* appData, uint8_t transport)
 	return DeviceApiError;
 }
 
+#elif defined(ESP_PLATFORM) && !defined(ARDUINO)
+
+// =========================================================================
+// ESP-IDF implementation
+// =========================================================================
+//
+// Push model: the application assembles a complete, '~'-terminated packet from
+// its transport (USB-CDC bytes or a reassembled MIDI SysEx payload), strips the
+// trailing '~', and calls deviceApi_Handler() with the null-terminated content.
+// The state machine advances one step per call (command packet, then payload).
+// No USB reads, timeouts, or blocking happen here — that is the app's job.
+// Transmit goes through the seams in device_api_port.h.
+
+#include "device_api.h"
+#include "device_api_handler.h"
+#include "device_api_port.h"
+
+#include <string.h>
+#include <stdlib.h>
+
+DeviceApiState apiState = DeviceApiReady;
+DeviceApiCommand receivedCommand = NoCommand;
+DeviceApiDataType apiDataType = DeviceApiNoData;
+
+const char termChar[2] = "~";
+const char commaChar[2] = ",";
+const char newLineChar[2] = "\n";
+
+//--------- Local Function Prototypes ---------//
+void sendInvalidCommandPacket(uint8_t transport);
+void sendOkPacket(uint8_t transport);
+void sendTxOverflowMessage(uint8_t transport);
+void sendInvalidTerminationPacket(uint8_t transport);
+void sendEventPacket(char *message, uint8_t transport);
+void resetDeviceApi(void);
+
+//------------- Local Functions --------------//
+static void txString(const char *buffer, uint8_t transport)
+{
+	if (transport == MIDI_TRANSPORT)
+	{
+		midi_SendDeviceApiSysExString(buffer, (uint16_t)strlen(buffer), 0);
+	}
+	else
+	{
+		deviceApi_TransmitCdc((const uint8_t *)buffer, strlen(buffer));
+	}
+}
+
+void sendInvalidCommandPacket(uint8_t transport)
+{
+	txString(USB_INVALID_COMMAND_STRING USB_PACKET_DELIMITER "\n", transport);
+}
+
+void sendOkPacket(uint8_t transport)
+{
+	txString(USB_VALID_COMMAND_STRING USB_PACKET_DELIMITER "\n", transport);
+}
+
+void sendTxOverflowMessage(uint8_t transport)
+{
+	txString(USB_TX_BUF_OVERFLOW_STRING USB_PACKET_DELIMITER "\n", transport);
+}
+
+void sendInvalidTerminationPacket(uint8_t transport)
+{
+	txString(USB_INVALID_TERMINATOR_STRING USB_PACKET_DELIMITER "\n", transport);
+}
+
+void sendEventPacket(char *message, uint8_t transport)
+{
+	txString(message, transport);
+}
+
+void resetDeviceApi(void)
+{
+	receivedCommand = NoCommand;
+	apiState = DeviceApiReady;
+	apiDataType = DeviceApiNoData;
+}
+
+//------------- Global Functions -------------//
+// appData: one complete packet, already '~'-stripped and null-terminated by the
+// application (a command like "CHCK" while Ready, or a payload once a command is
+// pending).
+DeviceApiState deviceApi_Handler(char *appData, uint8_t transport)
+{
+	static uint16_t bankIndex = 0;
+
+	if (appData == NULL)
+	{
+		return DeviceApiError;
+	}
+
+	// Ready — appData holds the four-character command type.
+	if (apiState == DeviceApiReady)
+	{
+		if (strlen(appData) != 4)
+		{
+			sendInvalidTerminationPacket(transport);
+			resetDeviceApi();
+			return DeviceApiError;
+		}
+
+		char command[6];
+		memcpy(command, appData, 4);
+		command[4] = '\0';
+
+		if (strcmp(command, USB_CONTROL_COMMAND_TYPE_STRING) == 0)
+		{
+			receivedCommand = ControlCommand;
+			apiState = DeviceApiNewCommand;
+			sendOkPacket(transport);
+		}
+		else if (strcmp(command, USB_DATA_REQUEST_TYPE_STRING) == 0)
+		{
+			receivedCommand = DataRequestCommand;
+			apiState = DeviceApiNewCommand;
+			sendOkPacket(transport);
+		}
+		else if (strcmp(command, USB_DATA_TX_REQUEST_TYPE_STRING) == 0)
+		{
+			receivedCommand = DataTxRequestCommand;
+			apiState = DeviceApiNewCommand;
+			sendOkPacket(transport);
+		}
+		else if (strcmp(command, USB_CHECK_TYPE_STRING) == 0)
+		{
+			sendCheckResponse(transport);
+		}
+		else if (strcmp(command, USB_RESET_TYPE_STRING) == 0)
+		{
+			resetDeviceApi();
+			sendOkPacket(transport);
+		}
+		else
+		{
+			sendInvalidCommandPacket(transport);
+			receivedCommand = NoCommand;
+			return DeviceApiError;
+		}
+		return DeviceApiNewCommand;
+	}
+
+	// A command is pending — appData holds the payload.
+	if (receivedCommand == ControlCommand)
+	{
+		ctrlCommandHandler(appData, transport);
+		apiState = DeviceApiReady;
+		sendOkPacket(transport);
+		return DeviceApiReady;
+	}
+	else if (receivedCommand == DataRequestCommand)
+	{
+		if (strcmp(appData, USB_GLOBAL_SETTINGS_STRING) == 0)
+		{
+			sendGlobalSettings(transport);
+			apiState = DeviceApiReady;
+			return DeviceApiReady;
+		}
+		else if (strcmp(appData, USB_CURRENT_BANK_STRING) == 0)
+		{
+			sendCurrentBank(transport);
+			apiState = DeviceApiReady;
+			return DeviceApiReady;
+		}
+		else
+		{
+			// Commands with a comma-separated argument (e.g. "bankSettings,3").
+			char *dataTokenPtr = strtok(appData, commaChar);
+			if (dataTokenPtr != NULL && strcmp(dataTokenPtr, USB_BANK_SETTINGS_STRING) == 0)
+			{
+				dataTokenPtr = strtok(NULL, termChar);
+				int index = (dataTokenPtr != NULL) ? atoi(dataTokenPtr) : 0;
+				sendBankSettings(index, transport);
+				apiState = DeviceApiReady;
+				return DeviceApiReady;
+			}
+			else if (dataTokenPtr != NULL && strcmp(dataTokenPtr, USB_BANK_ID_STRING) == 0)
+			{
+				dataTokenPtr = strtok(NULL, termChar);
+				int index = (dataTokenPtr != NULL) ? atoi(dataTokenPtr) : 0;
+				sendBankId(index, transport);
+				apiState = DeviceApiReady;
+				return DeviceApiReady;
+			}
+			else
+			{
+				sendInvalidCommandPacket(transport);
+				resetDeviceApi();
+				return DeviceApiError;
+			}
+		}
+	}
+	else if (receivedCommand == DataTxRequestCommand)
+	{
+		// First payload selects the data type; the second carries the data.
+		if (apiDataType == DeviceApiNoData)
+		{
+			char *dataTokenPtr = strtok(appData, commaChar);
+			if (dataTokenPtr != NULL && strcmp(dataTokenPtr, USB_BANK_SETTINGS_STRING) == 0)
+			{
+				dataTokenPtr = strtok(NULL, termChar);
+				bankIndex = (dataTokenPtr != NULL) ? (uint16_t)atoi(dataTokenPtr) : 0;
+				apiDataType = DeviceApiBankSettings;
+				sendOkPacket(transport);
+				return DeviceApiRxData;
+			}
+			else if (dataTokenPtr != NULL && strcmp(dataTokenPtr, USB_GLOBAL_SETTINGS_STRING) == 0)
+			{
+				apiDataType = DeviceApiGlobalSettings;
+				sendOkPacket(transport);
+				return DeviceApiRxData;
+			}
+			else
+			{
+				sendInvalidCommandPacket(transport);
+				resetDeviceApi();
+				return DeviceApiError;
+			}
+		}
+		else if (apiDataType == DeviceApiGlobalSettings)
+		{
+			parseGlobalSettings(appData, transport);
+			resetDeviceApi();
+			sendOkPacket(transport);
+			return DeviceApiReady;
+		}
+		else if (apiDataType == DeviceApiBankSettings)
+		{
+			parseBankSettings(appData, bankIndex, transport);
+			resetDeviceApi();
+			sendOkPacket(transport);
+			return DeviceApiReady;
+		}
+	}
+
+	// RSET or unknown pending state.
+	resetDeviceApi();
+	sendOkPacket(transport);
+	return DeviceApiReady;
+}
+
 #endif

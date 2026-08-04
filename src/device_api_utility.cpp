@@ -1,4 +1,10 @@
 #include "device_api_utility.h"
+
+#if defined(ESP_PLATFORM) && !defined(ARDUINO)
+// ESP-IDF build: no Arduino; transmit through the application-provided seams.
+#include "device_api_port.h"
+#include <string.h>
+#else
 #include <Arduino.h>
 #include "midi_handling.h"
 #include "esp_log.h"
@@ -11,6 +17,7 @@
 extern USBCDC USBSerial;
 #else
 #define USBSerial Serial
+#endif
 #endif
 
 //const char* TAG = "Device-API";
@@ -155,7 +162,10 @@ size_t CustomWriter::flush()
 size_t transmitBuffer(const uint8_t *buffer, size_t size)
 {
 	size_t remain = size;
-#ifdef USE_TINYUSB
+#if defined(ESP_PLATFORM) && !defined(ARDUINO)
+	deviceApi_TransmitCdc(buffer, size);
+	remain = 0;
+#elif defined(USE_TINYUSB)
 	while (remain && tud_cdc_n_connected(0))
 	{
 		size_t wrcount = tud_cdc_n_write(0, buffer, remain);
@@ -206,7 +216,11 @@ void sendPacketTermination(uint8_t transport)
 	{
 		// Sends terminating character and new-line for readability
 		const uint8_t txStr[] = {"~\n"};
+#if defined(ESP_PLATFORM) && !defined(ARDUINO)
+		deviceApi_TransmitCdc(txStr, 2);
+#else
 		USBSerial.write(txStr, 2);
+#endif
 	}
 	else if(transport == MIDI_TRANSPORT)
 	{

@@ -3,6 +3,10 @@
 
 #include "stdint.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define USB_PACKET_DELIMITER								"~"
 #define STRING_TERMINATOR									"\0"
 
@@ -435,5 +439,9 @@ extern DeviceApiCommand receivedCommand;
 extern DeviceApiDataType apiDataType;
 
 DeviceApiState deviceApi_Handler(char* appData, uint8_t transport);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* DEVICE_API_H_ */
