@@ -400,6 +400,15 @@ extern "C" {
 #define USB_CDC_TRANSPORT			0
 #define MIDI_TRANSPORT				1
 
+// Device-API SysEx request framing. Over MIDI a request is carried as
+//   F0 <ADDR0> <ADDR1> <ADDR2> <CMD> <ASCII '~'-terminated payload> F7
+// (the 3-byte address + command let the device know the SysEx targets it); the
+// response omits the address/command:  F0 <ASCII '~'-terminated> F7.
+#define DEVAPI_SYSEX_ADDR0			0x00
+#define DEVAPI_SYSEX_ADDR1			0x22
+#define DEVAPI_SYSEX_ADDR2			0x33
+#define DEVAPI_SYSEX_CMD			0x01
+
 
 extern const char termChar[];
 extern const char commaChar[];
